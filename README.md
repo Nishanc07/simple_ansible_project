@@ -57,6 +57,5 @@ This project automates the deployment of a Java Maven application into Docker co
    Create `vault.yaml` with your Docker Hub credentials:
 
    ```yaml
-   docker_username: your_dockerhub_username
-   docker_password: your_dockerhub_password
+   ansible-vault create vault.yaml
    ```
