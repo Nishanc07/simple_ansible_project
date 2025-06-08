@@ -1,0 +1,82 @@
+---
+- name: Install OpenJDK 17 and basic tools
+  apt:
+    name:
+      - openjdk-17-jdk
+      - git
+      - curl
+    state: present
+    update_cache: yes
+- name: Install Maven 3.8.7 (for JDK 17)
+  block:
+    - name: Download & extract Maven 3.8.7
+      unarchive:
+        src: https://dlcdn.apache.org/maven/maven-3/3.8.7/binaries/apache-maven-3.8.7-bin.tar.gz
+        dest: /opt/
+        remote_src: yes
+    - name: Set Maven environment
+      copy:
+        dest: /etc/profile.d/maven.sh
+        content: |
+          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+          export M2_HOME=/opt/apache-maven-3.8.7
+          export PATH=$JAVA_HOME/bin:$M2_HOME/bin:$PATH
+        mode: "0755"
+- name: Add ubuntu to docker group
+  user:
+    name: ubuntu
+    groups: docker
+    append: yes
+  tags: docker
+- name: Ensure Docker service is running
+  service:
+    name: docker
+    state: started
+    enabled: true
+  tags: docker
+- name: Clone or update Git repository
+  git:
+    repo: "{{ git_repo_url }}"
+    dest: "{{ repo_dir }}"
+    version: main
+    update: yes
+  become: false
+  tags: git
+- name: Build Maven project
+  shell: mvn clean package
+  args:
+    chdir: "{{ repo_dir }}"
+  become: false
+  register: maven_result
+  failed_when: maven_result.rc != 0
+  tags: maven
+- name: Print Maven stdout if failed
+  debug:
+    var: maven_result.stdout_lines
+  when: maven_result.rc != 0
+  tags: maven
+- name: Print Maven stderr if failed
+  debug:
+    var: maven_result.stderr_lines
+  when: maven_result.rc != 0
+  tags: maven
+- name: Build Docker image
+  community.docker.docker_image:
+    name: "{{ docker_image_name }}"
+    tag: "{{ docker_tag }}"
+    source: build
+    build:
+      path: "{{ repo_dir }}"
+  tags: docker
+- name: Log in to Docker Hub
+  community.docker.docker_login:
+    username: "{{ docker_username }}"
+    password: "{{ docker_password }}"
+  tags: docker
+- name: Push Docker image
+  community.docker.docker_image:
+    name: "{{ docker_image_name }}"
+    tag: "{{ docker_tag }}"
+    push: true
+    source: local
+  tags: docker

@@ -1,0 +1,4 @@
+git_repo_url: "https://github.com/Nishanc07/boardgame"
+repo_dir: "/home/ubuntu/Boardgame"
+docker_image_name: "nishanc7/board"
+docker_tag: "latest"
